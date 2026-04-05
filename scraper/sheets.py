@@ -19,6 +19,9 @@ def _lire_onglet(sheet_id: str, onglet: str) -> list[list[str]]:
     resp.raise_for_status()
     reader = csv.reader(io.StringIO(resp.text))
     rows = list(reader)
+    logger.info("[%s] %d lignes brutes (en-tête incluse)", onglet, len(rows))
+    for i, row in enumerate(rows[:5]):
+        logger.info("[%s] ligne %d : %s", onglet, i, row)
     return rows[1:]  # ignorer l'en-tête
 
 
@@ -37,7 +40,7 @@ def lire_criteres(sheet_id: str) -> dict[str, dict[str, str]]:
                 "valeur": row[1].strip(),
                 "priorite": row[2].strip() if len(row) >= 3 and row[2].strip() else "obligatoire",
             }
-    logger.info("Critères chargés : %s", list(criteres.keys()))
+    logger.info("Critères chargés (%d) : %s", len(criteres), criteres)
     return criteres
 
 
@@ -57,5 +60,5 @@ def lire_sites(sheet_id: str) -> list[dict[str, str]]:
                     "site": row[0].strip().lower(),
                     "url": row[1].strip(),
                 })
-    logger.info("Sites actifs : %s", [s["site"] for s in sites])
+    logger.info("Sites actifs (%d) : %s", len(sites), sites)
     return sites

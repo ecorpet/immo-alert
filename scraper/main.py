@@ -117,14 +117,16 @@ def main() -> None:
             logger.warning("Pas de parser pour le site : %s", site_nom)
             continue
 
-        logger.info("Scraping %s…", site_nom)
+        logger.info("Scraping %s → %s", site_nom, site_url)
         try:
             annonces_brutes: list[Annonce] = parser_class().parse(site_url)
         except Exception as e:
-            logger.error("Erreur critique scraping %s : %s", site_nom, e)
+            logger.error("Erreur critique scraping %s : %s", site_nom, e, exc_info=True)
             continue
 
         logger.info("%s : %d annonces récupérées", site_nom, len(annonces_brutes))
+        for a in annonces_brutes[:3]:
+            logger.info("  • [%s] %s — %s € — %s", a.id, a.titre[:50], a.prix, a.url[:60])
 
         for annonce in annonces_brutes:
             if annonce.id in seen:
