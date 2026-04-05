@@ -34,15 +34,21 @@ class BieniciParser(BaseParser):
         for attempt in range(self.MAX_RETRIES):
             try:
                 with httpx.Client(headers=HEADERS, timeout=self.TIMEOUT, follow_redirects=True) as client:
+                    logger.info("[bienici] GET %s (tentative %d)", url[:80], attempt + 1)
                     resp = client.get(url)
+                    logger.info("[bienici] HTTP %s — %d octets", resp.status_code, len(resp.content))
                     resp.raise_for_status()
-                    return self._parse_html(resp.text)
+                    html = resp.text
+                    if any(kw in html.lower() for kw in ["captcha", "are you a robot", "accès refusé", "access denied"]):
+                        logger.warning("[bienici] Blocage anti-bot détecté dans la réponse HTML")
+                    return self._parse_html(html)
             except httpx.HTTPStatusError as e:
-                logger.warning("Bien'ici HTTP %s, tentative %d/%d", e.response.status_code, attempt + 1, self.MAX_RETRIES)
+                logger.warning("[bienici] HTTP %s — bloqué ? (tentative %d/%d)", e.response.status_code, attempt + 1, self.MAX_RETRIES)
             except Exception as e:
-                logger.error("Erreur Bien'ici tentative %d: %s", attempt + 1, e)
+                logger.error("[bienici] Erreur tentative %d : %s", attempt + 1, e, exc_info=True)
             if attempt < self.MAX_RETRIES - 1:
                 time.sleep(2 ** attempt * 2)
+        logger.error("[bienici] Échec après %d tentatives", self.MAX_RETRIES)
         return []
 
     def _parse_html(self, html: str) -> list[Annonce]:
@@ -55,14 +61,18 @@ class BieniciParser(BaseParser):
             if not m:
                 m = re.search(r"__INITIAL_STATE__\s*=\s*({.+})", text, re.DOTALL)
             if m:
+                logger.info("[bienici] __INITIAL_STATE__ trouvé, extraction JSON…")
                 try:
                     data = json.loads(m.group(1))
                     ads = self._extract_ads(data)
-                    return [a for item in ads if (a := self._annonce_from_item(item))]
+                    logger.info("[bienici] %d annonces brutes extraites", len(ads))
+                    results = [a for item in ads if (a := self._annonce_from_item(item))]
+                    logger.info("[bienici] %d annonces valides", len(results))
+                    return results
                 except json.JSONDecodeError as e:
-                    logger.debug("Bien'ici JSON decode: %s", e)
+                    logger.warning("[bienici] JSON decode échoué : %s", e)
 
-        logger.warning("window.__INITIAL_STATE__ introuvable pour Bien'ici")
+        logger.warning("[bienici] window.__INITIAL_STATE__ introuvable — site bloqué ou structure changée")
         return []
 
     def _extract_ads(self, data: dict) -> list[dict]:

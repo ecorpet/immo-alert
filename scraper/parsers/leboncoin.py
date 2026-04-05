@@ -41,19 +41,25 @@ class LeboncoinParser(BaseParser):
         for attempt in range(self.MAX_RETRIES):
             try:
                 with httpx.Client(headers=HEADERS, timeout=self.TIMEOUT, follow_redirects=True) as client:
+                    logger.info("[leboncoin] GET %s (tentative %d)", url[:80], attempt + 1)
                     resp = client.get(url)
+                    logger.info("[leboncoin] HTTP %s — %d octets", resp.status_code, len(resp.content))
                     resp.raise_for_status()
-                    annonces = self._parse_html(resp.text, client)
+                    html = resp.text
+                    if any(kw in html.lower() for kw in ["captcha", "datadome", "are you a robot", "accès refusé", "access denied"]):
+                        logger.warning("[leboncoin] Blocage anti-bot détecté dans la réponse HTML")
+                    annonces = self._parse_html(html, client)
                     if annonces:
                         return annonces
-                    logger.warning("HTML Leboncoin vide ou bloqué, tentative API interne…")
+                    logger.warning("[leboncoin] HTML vide ou bloqué, tentative API interne…")
                     return self._parse_api(url, client)
             except httpx.HTTPStatusError as e:
-                logger.warning("Leboncoin HTTP %s, tentative %d/%d", e.response.status_code, attempt + 1, self.MAX_RETRIES)
+                logger.warning("[leboncoin] HTTP %s — bloqué ? (tentative %d/%d)", e.response.status_code, attempt + 1, self.MAX_RETRIES)
             except Exception as e:
-                logger.error("Erreur Leboncoin tentative %d: %s", attempt + 1, e)
+                logger.error("[leboncoin] Erreur tentative %d : %s", attempt + 1, e, exc_info=True)
             if attempt < self.MAX_RETRIES - 1:
                 time.sleep(2 ** attempt * 2)
+        logger.error("[leboncoin] Échec après %d tentatives", self.MAX_RETRIES)
         return []
 
     # ------------------------------------------------------------------
@@ -63,6 +69,7 @@ class LeboncoinParser(BaseParser):
 
         next_data_tag = soup.find("script", {"id": "__NEXT_DATA__"})
         if next_data_tag:
+            logger.info("[leboncoin] __NEXT_DATA__ trouvé, extraction JSON…")
             try:
                 data = json.loads(next_data_tag.string)
                 ads: list[dict] = (
@@ -71,14 +78,19 @@ class LeboncoinParser(BaseParser):
                     .get("searchData", {})
                     .get("ads", [])
                 )
+                logger.info("[leboncoin] __NEXT_DATA__ : %d annonces brutes", len(ads))
                 results = [a for ad in ads if (a := self._annonce_from_next_data(ad))]
+                logger.info("[leboncoin] __NEXT_DATA__ : %d annonces valides", len(results))
                 if results:
                     return results
             except (json.JSONDecodeError, AttributeError) as e:
-                logger.debug("Parsing __NEXT_DATA__ Leboncoin échoué: %s", e)
+                logger.warning("[leboncoin] Parsing __NEXT_DATA__ échoué : %s", e)
+        else:
+            logger.warning("[leboncoin] __NEXT_DATA__ absent")
 
         # Fallback HTML classique
         cards = soup.select("a[data-qa-id='aditem_container']")
+        logger.info("[leboncoin] Fallback HTML : %d cartes trouvées", len(cards))
         return [a for card in cards if (a := self._annonce_from_card(card))]
 
     def _annonce_from_next_data(self, ad: dict[str, Any]) -> Annonce | None:
@@ -197,14 +209,17 @@ class LeboncoinParser(BaseParser):
                 "offset": 0,
                 "limit": 35,
             }
+            logger.info("[leboncoin] POST API interne…")
             resp = client.post(
                 "https://api.leboncoin.fr/finder/search",
                 json=payload,
                 headers=api_headers,
             )
+            logger.info("[leboncoin] API HTTP %s — %d octets", resp.status_code, len(resp.content))
             resp.raise_for_status()
             ads = resp.json().get("ads", [])
+            logger.info("[leboncoin] API : %d annonces", len(ads))
             return [a for ad in ads if (a := self._annonce_from_next_data(ad))]
         except Exception as e:
-            logger.error("Erreur API interne Leboncoin: %s", e)
+            logger.error("[leboncoin] Erreur API interne : %s", e, exc_info=True)
             return []

@@ -35,15 +35,21 @@ class PAPParser(BaseParser):
         for attempt in range(self.MAX_RETRIES):
             try:
                 with httpx.Client(headers=HEADERS, timeout=self.TIMEOUT, follow_redirects=True) as client:
+                    logger.info("[pap] GET %s (tentative %d)", url[:80], attempt + 1)
                     resp = client.get(url)
+                    logger.info("[pap] HTTP %s — %d octets", resp.status_code, len(resp.content))
                     resp.raise_for_status()
-                    return self._parse_html(resp.text)
+                    html = resp.text
+                    if any(kw in html.lower() for kw in ["captcha", "are you a robot", "accès refusé", "access denied"]):
+                        logger.warning("[pap] Blocage anti-bot détecté dans la réponse HTML")
+                    return self._parse_html(html)
             except httpx.HTTPStatusError as e:
-                logger.warning("PAP HTTP %s, tentative %d/%d", e.response.status_code, attempt + 1, self.MAX_RETRIES)
+                logger.warning("[pap] HTTP %s — bloqué ? (tentative %d/%d)", e.response.status_code, attempt + 1, self.MAX_RETRIES)
             except Exception as e:
-                logger.error("Erreur PAP tentative %d: %s", attempt + 1, e)
+                logger.error("[pap] Erreur tentative %d : %s", attempt + 1, e, exc_info=True)
             if attempt < self.MAX_RETRIES - 1:
                 time.sleep(2 ** attempt * 2)
+        logger.error("[pap] Échec après %d tentatives", self.MAX_RETRIES)
         return []
 
     def _parse_html(self, html: str) -> list[Annonce]:
@@ -51,18 +57,18 @@ class PAPParser(BaseParser):
         soup = BeautifulSoup(html, "html.parser")
         annonces = []
 
-        # Les cartes d'annonces PAP ont typiquement la classe tagList ou search-list-item
         cards = soup.select("article.search-list-item, div.search-list-item, li.search-list-item")
+        logger.info("[pap] Sélecteur principal : %d cartes trouvées", len(cards))
         if not cards:
-            # Sélecteur alternatif
             cards = soup.select("[class*='search-list-item'], [class*='annonce']")
+            logger.info("[pap] Sélecteur alternatif : %d cartes trouvées", len(cards))
 
         for card in cards:
             annonce = self._annonce_from_card(card)
             if annonce:
                 annonces.append(annonce)
 
-        logger.debug("PAP: %d annonces extraites", len(annonces))
+        logger.info("[pap] %d annonces valides extraites", len(annonces))
         return annonces
 
     def _annonce_from_card(self, card: BeautifulSoup) -> Annonce | None:
