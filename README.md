@@ -36,14 +36,6 @@ Scraper d'annonces immobilières avec alertes SMS et mini site web — 100% grat
 3. Ajouter l'URL dans GitHub → Secrets :
    - `SITE_URL` : ex. `https://votre-user.github.io/immo-alert`
 
-### 4. Telegram (optionnel)
-
-1. Créer un bot via [@BotFather](https://t.me/BotFather) → récupérer le token
-2. Envoyer un message à votre bot
-3. Appeler `https://api.telegram.org/bot<TOKEN>/getUpdates` pour récupérer le `chat_id`
-4. Dans GitHub → Secrets :
-   - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_CHAT_ID`
 
 ## Développement local
 

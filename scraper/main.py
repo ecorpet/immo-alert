@@ -22,7 +22,7 @@ from .parsers.pap import PAPParser
 from .parsers.base import Annonce
 from .sheets import lire_criteres, lire_sites
 from .matcher import matcher_annonce
-from .notifier import envoyer_sms, envoyer_telegram, formater_sms, formater_telegram
+from .notifier import envoyer_sms, formater_sms
 from .site_generator import generer_site
 
 logging.basicConfig(
@@ -166,49 +166,31 @@ def main() -> None:
 
 
 def _notifier(annonces: list[dict]) -> None:
-    """Envoie SMS et Telegram pour les nouvelles annonces matchées."""
+    """Envoie SMS Free Mobile pour les nouvelles annonces matchées."""
     free_user = os.environ.get("FREE_SMS_USER")
     free_pass = os.environ.get("FREE_SMS_PASS")
-    tg_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    tg_chat = os.environ.get("TELEGRAM_CHAT_ID")
     site_url = os.environ.get("SITE_URL", "https://votre-user.github.io/immo-alert")
 
+    if not (free_user and free_pass):
+        return
+
     nb = len(annonces)
-
-    if free_user and free_pass:
-        if nb == 1:
-            a = annonces[0]
-            # Reconstruire un objet minimal pour formater_sms
-            ann = Annonce(
-                id=a["id"], titre=a["titre"], prix=a["prix"],
-                surface=a.get("surface"), chambres=a.get("chambres"),
-                pieces=a.get("pieces"), adresse=a.get("adresse", ""),
-                code_postal=a.get("code_postal"), description="",
-                photos=[a["photo"]] if a.get("photo") else [],
-                url=a["url"], etage=a.get("etage"),
-                source=a.get("source", ""), date_publication=None,
-            )
-            envoyer_sms(free_user, free_pass, formater_sms(ann, a["score"]))
-        else:
-            scores = ", ".join(str(a["score"]) for a in annonces[:3])
-            msg = f"🏠 {nb} nouvelles annonces !\nScores : {scores}\n→ {site_url}"
-            envoyer_sms(free_user, free_pass, msg[:160])
-
-    if tg_token and tg_chat:
-        for a in annonces[:5]:
-            ann = Annonce(
-                id=a["id"], titre=a["titre"], prix=a["prix"],
-                surface=a.get("surface"), chambres=a.get("chambres"),
-                pieces=a.get("pieces"), adresse=a.get("adresse", ""),
-                code_postal=a.get("code_postal"), description="",
-                photos=[a["photo"]] if a.get("photo") else [],
-                url=a["url"], etage=a.get("etage"),
-                source=a.get("source", ""), date_publication=None,
-            )
-            msg = formater_telegram(ann, a["score"], a.get("tags", []))
-            photo = a.get("photo")
-            envoyer_telegram(tg_token, tg_chat, msg, photo)
-            time.sleep(0.5)
+    if nb == 1:
+        a = annonces[0]
+        ann = Annonce(
+            id=a["id"], titre=a["titre"], prix=a["prix"],
+            surface=a.get("surface"), chambres=a.get("chambres"),
+            pieces=a.get("pieces"), adresse=a.get("adresse", ""),
+            code_postal=a.get("code_postal"), description="",
+            photos=[a["photo"]] if a.get("photo") else [],
+            url=a["url"], etage=a.get("etage"),
+            source=a.get("source", ""), date_publication=None,
+        )
+        envoyer_sms(free_user, free_pass, formater_sms(ann, a["score"]))
+    else:
+        scores = ", ".join(str(a["score"]) for a in annonces[:3])
+        msg = f"🏠 {nb} nouvelles annonces !\nScores : {scores}\n→ {site_url}"
+        envoyer_sms(free_user, free_pass, msg[:160])
 
 
 if __name__ == "__main__":

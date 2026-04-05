@@ -29,8 +29,6 @@ jobs:
           GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
           FREE_SMS_USER: ${{ secrets.FREE_SMS_USER }}
           FREE_SMS_PASS: ${{ secrets.FREE_SMS_PASS }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SITE_URL: ${{ secrets.SITE_URL }}
         run: python -m scraper.main
 
