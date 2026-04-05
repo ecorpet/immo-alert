@@ -19,10 +19,10 @@ def _lire_onglet(sheet_id: str, onglet: str) -> list[list[str]]:
     resp.raise_for_status()
     reader = csv.reader(io.StringIO(resp.text))
     rows = list(reader)
-    logger.info("[%s] %d lignes brutes (en-tête incluse)", onglet, len(rows))
+    logger.info("[%s] %d lignes brutes", onglet, len(rows))
     for i, row in enumerate(rows[:5]):
         logger.info("[%s] ligne %d : %s", onglet, i, row)
-    return rows[1:]  # ignorer l'en-tête
+    return rows  # pas d'en-tête dans le sheet
 
 
 def lire_criteres(sheet_id: str) -> dict[str, dict[str, str]]:
