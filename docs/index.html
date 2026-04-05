@@ -5,24 +5,426 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Immo Alert Marseille</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      display: flex; align-items: center; justify-content: center;
-      min-height: 100vh; margin: 0;
-      background: #f4f4f5; color: #18181b;
+    :root {
+      --bg: #f4f4f5;
+      --bg-card: #ffffff;
+      --bg-new: #f0fdf4;
+      --border: #e4e4e7;
+      --text: #18181b;
+      --text-muted: #71717a;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --green: #16a34a;
+      --orange: #ea580c;
+      --red: #dc2626;
+      --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.05);
+      --shadow-hover: 0 4px 12px rgba(0,0,0,0.12);
+      --radius: 12px;
     }
     @media (prefers-color-scheme: dark) {
-      body { background: #09090b; color: #fafafa; }
+      :root {
+        --bg: #09090b;
+        --bg-card: #18181b;
+        --bg-new: #052e16;
+        --border: #27272a;
+        --text: #fafafa;
+        --text-muted: #a1a1aa;
+        --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
+        --shadow-hover: 0 4px 16px rgba(0,0,0,0.4);
+      }
     }
-    .box { text-align: center; padding: 2rem; }
-    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-    p { color: #71717a; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; }
+    .meta { font-size: 0.813rem; color: var(--text-muted); }
+
+    /* ── Container ── */
+    .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+    /* ── Filters ── */
+    .filters {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: flex-end;
+      margin-bottom: 1.5rem;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 0.3rem; }
+    .filter-group label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .filters select,
+    .filters input[type="number"] {
+      padding: 0.45rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.875rem;
+      min-width: 120px;
+      cursor: pointer;
+    }
+    .filters select:focus,
+    .filters input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .btn-reset {
+      padding: 0.45rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      cursor: pointer;
+      align-self: flex-end;
+    }
+    .btn-reset:hover { background: var(--border); }
+
+    /* ── Section titles ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+      margin-top: 1.5rem;
+    }
+    .section-header:first-child { margin-top: 0; }
+    .section-title { font-size: 1rem; font-weight: 700; }
+    .count-badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+    }
+    .new-badge {
+      background: var(--green);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 1rem;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+    .card.is-new { border-color: #86efac; background: var(--bg-new); }
+
+    .card-photo-wrap { position: relative; height: 190px; overflow: hidden; background: var(--border); }
+    .card-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card-photo-placeholder {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; color: var(--text-muted);
+    }
+    .card-source {
+      position: absolute; top: 0.5rem; left: 0.5rem;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.15rem 0.45rem;
+      border-radius: 6px;
+    }
+    .card-new-ribbon {
+      position: absolute; top: 0.5rem; right: 0.5rem;
+      background: var(--green);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.15rem 0.45rem;
+      border-radius: 6px;
+    }
+
+    .card-body { padding: 0.875rem; flex: 1; display: flex; flex-direction: column; gap: 0.35rem; }
+
+    .card-prix { font-size: 1.35rem; font-weight: 800; color: var(--accent); line-height: 1; }
+
+    .card-titre {
+      font-size: 0.9rem;
+      font-weight: 600;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.1rem;
+    }
+    .card-detail-item {
+      display: flex;
+      align-items: center;
+      gap: 0.2rem;
+    }
+
+    .card-adresse { font-size: 0.8rem; color: var(--text-muted); }
+
+    .card-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.25rem; }
+    .tag {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.7rem;
+      padding: 0.1rem 0.5rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .card-footer {
+      padding: 0.75rem 0.875rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .footer-left { display: flex; flex-direction: column; gap: 0.2rem; }
+
+    .score-badge {
+      display: inline-flex; align-items: center;
+      font-size: 0.8rem; font-weight: 700;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      color: #fff;
+    }
+    .score-green { background: var(--green); }
+    .score-orange { background: var(--orange); }
+    .score-red { background: var(--red); }
+
+    .card-date { font-size: 0.7rem; color: var(--text-muted); }
+
+    .btn-voir {
+      display: inline-block;
+      padding: 0.45rem 0.9rem;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-voir:hover { background: var(--accent-hover); }
+
+    /* ── Empty state ── */
+    .empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      header { flex-direction: column; align-items: flex-start; }
+      .filters { flex-direction: column; }
+      .filters select, .filters input { width: 100%; }
+    }
   </style>
 </head>
 <body>
-  <div class="box">
+
+<header>
+  <div>
     <h1>🏠 Immo Alert Marseille</h1>
-    <p>Le site sera généré lors du premier lancement du scraper.</p>
   </div>
+  <p class="meta">0 annonce(s) · Dernière MAJ : 05/04/2026 à 11:11 UTC</p>
+</header>
+
+<div class="container">
+
+  <!-- Filtres -->
+  <div class="filters">
+    <div class="filter-group">
+      <label>Arrondissement</label>
+      <select id="f-arr" onchange="filtrer()">
+        <option value="">Tous</option>
+        <option value="13001">1er</option>
+        <option value="13002">2e</option>
+        <option value="13003">3e</option>
+        <option value="13004">4e</option>
+        <option value="13005">5e</option>
+        <option value="13006">6e</option>
+        <option value="13007">7e</option>
+        <option value="13008">8e</option>
+        <option value="13009">9e</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Score min</label>
+      <select id="f-score" onchange="filtrer()">
+        <option value="0">Tous</option>
+        <option value="30">≥ 30</option>
+        <option value="50">≥ 50</option>
+        <option value="70">≥ 70</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Prix max (€)</label>
+      <input type="number" id="f-prix" placeholder="ex: 350000" step="10000" onchange="filtrer()" />
+    </div>
+    <div class="filter-group">
+      <label>Trier par</label>
+      <select id="f-sort" onchange="filtrer()">
+        <option value="score">Score ↓</option>
+        <option value="prix_asc">Prix ↑</option>
+        <option value="prix_desc">Prix ↓</option>
+        <option value="date">Date ↓</option>
+      </select>
+    </div>
+    <button class="btn-reset" onclick="resetFiltres()">Réinitialiser</button>
+  </div>
+
+  <!-- Nouvelles annonces (< 24h) -->
+  
+
+  <!-- Toutes les annonces -->
+  <div class="section-header">
+    <span class="section-title">Toutes les annonces</span>
+    <span class="count-badge" id="count-total">0</span>
+  </div>
+  <div class="grid" id="grid-toutes">
+    
+    <div class="empty">Aucune annonce ne correspond à vos critères pour le moment.<br>Revenez bientôt !</div>
+    
+  </div>
+
+</div><!-- /container -->
+
+<script>
+const ANNONCES = [];
+
+function scoreClass(s) {
+  if (s >= 70) return "score-green";
+  if (s >= 50) return "score-orange";
+  return "score-red";
+}
+
+function renderCard(a) {
+  const photo = a.photo
+    ? `<img class="card-photo" src="${a.photo}" alt="${esc(a.titre)}" loading="lazy"
+           onerror="this.parentNode.innerHTML='<div class=\\'card-photo-placeholder\\'>🏠</div>'">`
+    : `<div class="card-photo-placeholder">🏠</div>`;
+  const newRibbon = a.is_new ? `<span class="card-new-ribbon">Nouveau</span>` : "";
+  const details = [
+    a.pieces  ? `<span class="card-detail-item">🏠 ${a.pieces}P</span>` : "",
+    a.surface ? `<span class="card-detail-item">📐 ${Math.round(a.surface)}m²</span>` : "",
+    a.etage != null ? `<span class="card-detail-item">🏢 Étage ${a.etage}</span>` : "",
+  ].join("");
+  const tags = (a.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join("");
+  return `
+  <div class="card${a.is_new ? ' is-new' : ''}" data-id="${a.id}" data-cp="${a.code_postal||''}" data-score="${a.score}" data-prix="${a.prix}" data-ts="${a.timestamp||0}">
+    <div class="card-photo-wrap">
+      ${photo}
+      <span class="card-source">${esc(a.source)}</span>
+      ${newRibbon}
+    </div>
+    <div class="card-body">
+      <div class="card-prix">${esc(a.prix_formate)}</div>
+      <div class="card-titre">${esc(a.titre)}</div>
+      ${details ? `<div class="card-details">${details}</div>` : ""}
+      ${a.adresse ? `<div class="card-adresse">📍 ${esc(a.adresse)}</div>` : ""}
+      ${tags ? `<div class="card-tags">${tags}</div>` : ""}
+    </div>
+    <div class="card-footer">
+      <div class="footer-left">
+        <span class="score-badge ${scoreClass(a.score)}">⭐ ${a.score}/100</span>
+        <span class="card-date">${esc(a.date_detection||"")}</span>
+      </div>
+      <a href="${a.url}" target="_blank" rel="noopener noreferrer" class="btn-voir">Voir →</a>
+    </div>
+  </div>`;
+}
+
+function esc(s) {
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function filtrer() {
+  const arr    = document.getElementById("f-arr").value;
+  const score  = parseInt(document.getElementById("f-score").value) || 0;
+  const prix   = parseInt(document.getElementById("f-prix").value) || Infinity;
+  const sort   = document.getElementById("f-sort").value;
+
+  let data = ANNONCES.filter(a => {
+    if (arr && !(a.code_postal || "").includes(arr.slice(-3))) return false;
+    if (a.score < score) return false;
+    if (a.prix > prix) return false;
+    return true;
+  });
+
+  if (sort === "score")      data.sort((a, b) => b.score - a.score);
+  else if (sort === "prix_asc")  data.sort((a, b) => a.prix - b.prix);
+  else if (sort === "prix_desc") data.sort((a, b) => b.prix - a.prix);
+  else if (sort === "date")  data.sort((a, b) => (b.timestamp||0) - (a.timestamp||0));
+
+  const grid = document.getElementById("grid-toutes");
+  const counter = document.getElementById("count-total");
+  if (counter) counter.textContent = data.length;
+  grid.innerHTML = data.length
+    ? data.map(renderCard).join("")
+    : `<div class="empty">Aucun résultat pour ces filtres.</div>`;
+}
+
+function resetFiltres() {
+  document.getElementById("f-arr").value = "";
+  document.getElementById("f-score").value = "0";
+  document.getElementById("f-prix").value = "";
+  document.getElementById("f-sort").value = "score";
+  filtrer();
+}
+</script>
+
 </body>
 </html>
