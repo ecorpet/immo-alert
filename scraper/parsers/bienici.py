@@ -1,4 +1,4 @@
-"""Parser pour Bien'ici — extrait les données depuis window.__INITIAL_STATE__."""
+"""Parser pour Bien'ici — Playwright (navigateur réel) avec fallback httpx."""
 
 import json
 import logging
@@ -30,26 +30,71 @@ class BieniciParser(BaseParser):
     SOURCE = "bienici"
 
     def parse(self, url: str) -> list[Annonce]:
-        """Parse une URL de recherche Bien'ici et retourne les annonces."""
+        """Parse une URL Bien'ici — essaie Playwright puis httpx."""
+        # Playwright : navigateur réel, contourne l'anti-bot
+        try:
+            annonces = self._parse_with_playwright(url)
+            if annonces:
+                return annonces
+            logger.warning("[bienici] Playwright : 0 annonces, fallback httpx…")
+        except Exception as e:
+            logger.warning("[bienici] Playwright échoué (%s), fallback httpx…", e)
+
+        # Fallback httpx
+        return self._parse_with_httpx(url)
+
+    # ------------------------------------------------------------------
+
+    def _parse_with_playwright(self, url: str) -> list[Annonce]:
+        """Charge la page avec un vrai navigateur Chromium headless."""
+        from playwright.sync_api import sync_playwright
+
+        logger.info("[bienici] Playwright → %s", url[:80])
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                user_agent=HEADERS["User-Agent"],
+                viewport={"width": 1280, "height": 800},
+                locale="fr-FR",
+            )
+            # Masque les traces de headless
+            context.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+            """)
+            page = context.new_page()
+            try:
+                page.goto(url, wait_until="networkidle", timeout=30_000)
+                html = page.content()
+                logger.info("[bienici] Playwright : page récupérée (%d octets)", len(html))
+            finally:
+                browser.close()
+
+        return self._parse_html(html)
+
+    def _parse_with_httpx(self, url: str) -> list[Annonce]:
+        """Fallback httpx classique."""
         for attempt in range(self.MAX_RETRIES):
             try:
                 with httpx.Client(headers=HEADERS, timeout=self.TIMEOUT, follow_redirects=True) as client:
-                    logger.info("[bienici] GET %s (tentative %d)", url[:80], attempt + 1)
+                    logger.info("[bienici] GET httpx %s (tentative %d)", url[:80], attempt + 1)
                     resp = client.get(url)
                     logger.info("[bienici] HTTP %s — %d octets", resp.status_code, len(resp.content))
                     resp.raise_for_status()
                     html = resp.text
-                    if any(kw in html.lower() for kw in ["captcha", "are you a robot", "accès refusé", "access denied"]):
-                        logger.warning("[bienici] Blocage anti-bot détecté dans la réponse HTML")
+                    if any(kw in html.lower() for kw in ["captcha", "are you a robot", "accès refusé"]):
+                        logger.warning("[bienici] Blocage anti-bot détecté")
                     return self._parse_html(html)
             except httpx.HTTPStatusError as e:
-                logger.warning("[bienici] HTTP %s — bloqué ? (tentative %d/%d)", e.response.status_code, attempt + 1, self.MAX_RETRIES)
+                logger.warning("[bienici] HTTP %s (tentative %d/%d)", e.response.status_code, attempt + 1, self.MAX_RETRIES)
             except Exception as e:
                 logger.error("[bienici] Erreur tentative %d : %s", attempt + 1, e, exc_info=True)
             if attempt < self.MAX_RETRIES - 1:
                 time.sleep(2 ** attempt * 2)
         logger.error("[bienici] Échec après %d tentatives", self.MAX_RETRIES)
         return []
+
+    # ------------------------------------------------------------------
 
     def _parse_html(self, html: str) -> list[Annonce]:
         """Extrait les annonces depuis window.__INITIAL_STATE__."""
@@ -61,28 +106,22 @@ class BieniciParser(BaseParser):
             if not m:
                 m = re.search(r"__INITIAL_STATE__\s*=\s*({.+})", text, re.DOTALL)
             if m:
-                logger.info("[bienici] __INITIAL_STATE__ trouvé, extraction JSON…")
+                logger.info("[bienici] __INITIAL_STATE__ trouvé")
                 try:
                     data = json.loads(m.group(1))
                     ads = self._extract_ads(data)
-                    logger.info("[bienici] %d annonces brutes extraites", len(ads))
+                    logger.info("[bienici] %d annonces brutes", len(ads))
                     results = [a for item in ads if (a := self._annonce_from_item(item))]
                     logger.info("[bienici] %d annonces valides", len(results))
                     return results
                 except json.JSONDecodeError as e:
                     logger.warning("[bienici] JSON decode échoué : %s", e)
 
-        logger.warning("[bienici] window.__INITIAL_STATE__ introuvable — site bloqué ou structure changée")
+        logger.warning("[bienici] __INITIAL_STATE__ introuvable — bloqué ou structure changée")
         return []
 
     def _extract_ads(self, data: dict) -> list[dict]:
-        """Cherche les annonces dans l'arborescence JSON."""
-        # Chemins typiques Bien'ici
-        for path in [
-            ["realEstateAds"],
-            ["searchResults", "ads"],
-            ["results", "realEstateAds"],
-        ]:
+        for path in [["realEstateAds"], ["searchResults", "ads"], ["results", "realEstateAds"]]:
             node = data
             for key in path:
                 if isinstance(node, dict) and key in node:
@@ -95,7 +134,6 @@ class BieniciParser(BaseParser):
         return []
 
     def _annonce_from_item(self, item: dict) -> Annonce | None:
-        """Construit une Annonce depuis un dict Bien'ici."""
         try:
             ad_id = str(item.get("id", ""))
             prix = int(item.get("price", 0) or 0)
@@ -136,5 +174,5 @@ class BieniciParser(BaseParser):
                 date_publication=item.get("publicationDate"),
             )
         except Exception as e:
-            logger.debug("Erreur construction Annonce Bien'ici: %s", e)
+            logger.debug("[bienici] Erreur construction Annonce : %s", e)
             return None
