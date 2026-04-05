@@ -72,13 +72,17 @@ class LeboncoinParser(BaseParser):
             logger.info("[leboncoin] __NEXT_DATA__ trouvé, extraction JSON…")
             try:
                 data = json.loads(next_data_tag.string)
-                ads: list[dict] = (
-                    data.get("props", {})
-                    .get("pageProps", {})
-                    .get("searchData", {})
-                    .get("ads", [])
-                )
+                # Trace le chemin JSON pour diagnostiquer les changements de structure
+                props = data.get("props", {})
+                logger.info("[leboncoin] props keys: %s", list(props.keys()))
+                page_props = props.get("pageProps", {})
+                logger.info("[leboncoin] pageProps keys: %s", list(page_props.keys()))
+                search_data = page_props.get("searchData", {})
+                logger.info("[leboncoin] searchData keys: %s", list(search_data.keys()) if isinstance(search_data, dict) else type(search_data).__name__)
+                ads: list[dict] = search_data.get("ads", []) if isinstance(search_data, dict) else []
                 logger.info("[leboncoin] __NEXT_DATA__ : %d annonces brutes", len(ads))
+                if ads:
+                    logger.info("[leboncoin] exemple annonce[0] keys: %s", list(ads[0].keys()))
                 results = [a for ad in ads if (a := self._annonce_from_next_data(ad))]
                 logger.info("[leboncoin] __NEXT_DATA__ : %d annonces valides", len(results))
                 if results:
