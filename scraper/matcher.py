@@ -66,6 +66,15 @@ def matcher_annonce(annonce: Annonce, criteres: dict[str, dict[str, str]]) -> Re
         except ValueError:
             logger.warning("Valeur prix_max invalide : %s", prix_max_str)
 
+    prix_min_str = _val(criteres, "prix_min")
+    if prix_min_str:
+        try:
+            prix_min = int(prix_min_str)
+            if annonce.prix > 0 and annonce.prix < prix_min:
+                return ResultatMatching(False, -1, [], [f"prix {annonce.prix} € < min {prix_min} €"])
+        except ValueError:
+            logger.warning("Valeur prix_min invalide : %s", prix_min_str)
+
     # --- Chambres (obligatoire, numérique) ---
     chambres_min_str = _val(criteres, "chambres_min")
     if chambres_min_str and annonce.chambres is not None:

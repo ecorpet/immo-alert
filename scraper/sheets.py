@@ -35,10 +35,19 @@ def lire_criteres(sheet_id: str) -> dict[str, dict[str, str]]:
     rows = _lire_onglet(sheet_id, "criteres")
     criteres: dict[str, dict[str, str]] = {}
     for row in rows:
-        if len(row) >= 2 and row[0].strip():
-            criteres[row[0].strip()] = {
+        if len(row) >= 3 and row[1].strip():
+            # Structure sheet : priorité (A) | critère (B) | valeur (C)
+            cle = row[1].strip().lower().replace(" ", "_")
+            criteres[cle] = {
+                "valeur": row[2].strip(),
+                "priorite": row[0].strip().lower() or "obligatoire",
+            }
+        elif len(row) >= 2 and row[0].strip():
+            # Fallback : critère (A) | valeur (B) | priorité (C)
+            cle = row[0].strip().lower().replace(" ", "_")
+            criteres[cle] = {
                 "valeur": row[1].strip(),
-                "priorite": row[2].strip() if len(row) >= 3 and row[2].strip() else "obligatoire",
+                "priorite": row[2].strip().lower() if len(row) >= 3 and row[2].strip() else "obligatoire",
             }
     logger.info("Critères chargés (%d) : %s", len(criteres), criteres)
     return criteres
