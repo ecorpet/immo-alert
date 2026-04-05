@@ -38,14 +38,15 @@ pytest tests/test_matcher.py::test_prix_max_satisfait -v
 ## Variables d'environnement (.env local)
 
 ```
-GOOGLE_SHEETS_CREDENTIALS=<json du service account, sur une seule ligne>
-GOOGLE_SHEETS_ID=<id du sheet>
+GOOGLE_SHEETS_ID=<id du sheet (entre /d/ et /edit dans l'URL)>
 FREE_SMS_USER=<identifiant free mobile>
 FREE_SMS_PASS=<clé API free mobile>
 TELEGRAM_BOT_TOKEN=<optionnel>
 TELEGRAM_CHAT_ID=<optionnel>
 SITE_URL=<url github pages>
 ```
+
+Le Google Sheet doit être **partagé publiquement** (« Toute personne disposant du lien peut consulter »).
 
 ## Architecture
 

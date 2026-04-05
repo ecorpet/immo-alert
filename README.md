@@ -11,17 +11,13 @@ Scraper d'annonces immobilières avec alertes SMS et mini site web — 100% grat
 
 ## Installation
 
-### 1. Google Sheets API
+### 1. Google Sheets
 
-1. Créer un projet sur [Google Cloud Console](https://console.cloud.google.com/)
-2. Activer l'**API Google Sheets**
-3. Créer un **Service Account** → télécharger le JSON de credentials
-4. Créer un Google Sheet avec deux onglets :
+1. Créer un Google Sheet avec deux onglets :
    - `criteres` (colonnes : critère | valeur | priorité)
    - `sites` (colonnes : site | url | actif)
-5. **Partager** le Sheet avec l'email du service account (droits lecteur)
-6. Dans GitHub → Settings → Secrets :
-   - `GOOGLE_SHEETS_CREDENTIALS` : le contenu JSON du service account (sur une ligne)
+2. **Partager publiquement** : Partager → « Toute personne disposant du lien » → Lecteur
+3. Dans GitHub → Settings → Secrets :
    - `GOOGLE_SHEETS_ID` : l'ID du sheet (dans l'URL entre `/d/` et `/edit`)
 
 ### 2. SMS Free Mobile
