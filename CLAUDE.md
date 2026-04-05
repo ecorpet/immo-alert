@@ -12,9 +12,9 @@ Créer un système automatisé qui scrape des annonces immobilières, les compar
 ## Stack technique
 - **Langage** : Python 3.11+
 - **Scraping** : httpx + BeautifulSoup4 (+ playwright en fallback si anti-bot)
-- **Google Sheets** : gspread + google-auth (service account)
+- **Google Sheets** : CSV public (httpx — aucun service account requis)
 - **SMS** : API Free Mobile (GET https://smsapi.free-mobile.fr/sendmsg)
-- **Notifications backup** : Telegram Bot API (optionnel)
+- **Notifications push** : ntfy.sh (POST https://ntfy.sh/{topic})
 - **Site web** : HTML statique généré par le script → GitHub Pages (branche `gh-pages` ou dossier `docs/`)
 - **Automatisation** : GitHub Actions (cron toutes les heures)
 - **Déduplication** : fichier `data/seen.json` committé dans le repo
@@ -41,8 +41,7 @@ pytest tests/test_matcher.py::test_prix_max_satisfait -v
 GOOGLE_SHEETS_ID=<id du sheet (entre /d/ et /edit dans l'URL)>
 FREE_SMS_USER=<identifiant free mobile>
 FREE_SMS_PASS=<clé API free mobile>
-TELEGRAM_BOT_TOKEN=<optionnel>
-TELEGRAM_CHAT_ID=<optionnel>
+NTFY_TOPIC=<nom du topic ntfy.sh (ex: immo-alert-marseille-abc123)>
 SITE_URL=<url github pages>
 ```
 
@@ -143,7 +142,7 @@ immo-alert/
 │   ├── main.py                    # Point d'entrée
 │   ├── sheets.py                  # Lecture Google Sheets
 │   ├── matcher.py                 # Moteur de matching
-│   ├── notifier.py                # SMS Free Mobile + Telegram
+│   ├── notifier.py                # SMS Free Mobile
 │   ├── site_generator.py          # Génère docs/index.html
 │   └── parsers/
 │       ├── base.py                # Annonce dataclass + BaseParser ABC

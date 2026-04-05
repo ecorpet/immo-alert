@@ -22,7 +22,7 @@ from .parsers.pap import PAPParser
 from .parsers.base import Annonce
 from .sheets import lire_criteres, lire_sites
 from .matcher import matcher_annonce
-from .notifier import envoyer_sms, formater_sms
+from .notifier import envoyer_sms, envoyer_ntfy, formater_sms
 from .site_generator import generer_site
 
 logging.basicConfig(
@@ -166,15 +166,14 @@ def main() -> None:
 
 
 def _notifier(annonces: list[dict]) -> None:
-    """Envoie SMS Free Mobile pour les nouvelles annonces matchées."""
+    """Envoie les notifications (Free Mobile SMS et/ou ntfy) pour les nouvelles annonces."""
     free_user = os.environ.get("FREE_SMS_USER")
     free_pass = os.environ.get("FREE_SMS_PASS")
+    ntfy_topic = os.environ.get("NTFY_TOPIC")
     site_url = os.environ.get("SITE_URL", "https://votre-user.github.io/immo-alert")
 
-    if not (free_user and free_pass):
-        return
-
     nb = len(annonces)
+
     if nb == 1:
         a = annonces[0]
         ann = Annonce(
@@ -186,11 +185,23 @@ def _notifier(annonces: list[dict]) -> None:
             url=a["url"], etage=a.get("etage"),
             source=a.get("source", ""), date_publication=None,
         )
-        envoyer_sms(free_user, free_pass, formater_sms(ann, a["score"]))
+        sms = formater_sms(ann, a["score"])
+        if free_user and free_pass:
+            envoyer_sms(free_user, free_pass, sms)
+        if ntfy_topic:
+            pieces = f"{a['pieces']}P " if a.get("pieces") else ""
+            surface = f"{int(a['surface'])}m² " if a.get("surface") else ""
+            prix_k = f"{a['prix'] // 1000}k€" if a.get("prix") else "?"
+            title = f"🏠 {pieces}{surface}{prix_k} — score {a['score']}"
+            body = f"{a.get('adresse') or a.get('titre', '')}\n{a['url']}"
+            envoyer_ntfy(ntfy_topic, title, body, url=a["url"])
     else:
         scores = ", ".join(str(a["score"]) for a in annonces[:3])
         msg = f"🏠 {nb} nouvelles annonces !\nScores : {scores}\n→ {site_url}"
-        envoyer_sms(free_user, free_pass, msg[:160])
+        if free_user and free_pass:
+            envoyer_sms(free_user, free_pass, msg[:160])
+        if ntfy_topic:
+            envoyer_ntfy(ntfy_topic, f"🏠 {nb} nouvelles annonces", msg, url=site_url)
 
 
 if __name__ == "__main__":

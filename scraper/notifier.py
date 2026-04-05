@@ -1,4 +1,4 @@
-"""Notifications : SMS Free Mobile."""
+"""Notifications : SMS Free Mobile + ntfy.sh."""
 
 import logging
 
@@ -24,6 +24,32 @@ def envoyer_sms(user: str, password: str, message: str) -> bool:
         return False
     except Exception as e:
         logger.error("Exception envoi SMS : %s", e)
+        return False
+
+
+def envoyer_ntfy(topic: str, title: str, message: str, url: str | None = None) -> bool:
+    """Envoie une notification via ntfy.sh."""
+    headers = {
+        "Title": title,
+        "Priority": "high",
+        "Tags": "house",
+    }
+    if url:
+        headers["Click"] = url
+    try:
+        resp = httpx.post(
+            f"https://ntfy.sh/{topic}",
+            content=message.encode("utf-8"),
+            headers=headers,
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            logger.info("Notification ntfy envoyée")
+            return True
+        logger.warning("Erreur ntfy : %s", resp.status_code)
+        return False
+    except Exception as e:
+        logger.error("Exception ntfy : %s", e)
         return False
 
 
