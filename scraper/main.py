@@ -117,20 +117,23 @@ def main() -> None:
             logger.warning("Pas de parser pour le site : %s", site_nom)
             continue
 
-        logger.info("Scraping %s → %s", site_nom, site_url)
+        logger.info("━━━ DÉBUT %s ━━━", site_nom.upper())
         try:
             annonces_brutes: list[Annonce] = parser_class().parse(site_url)
         except Exception as e:
             logger.error("Erreur critique scraping %s : %s", site_nom, e, exc_info=True)
+            logger.info("━━━ FIN %s : ERREUR ━━━", site_nom.upper())
             continue
 
-        logger.info("%s : %d annonces récupérées", site_nom, len(annonces_brutes))
-        for a in annonces_brutes[:3]:
-            logger.info("  • [%s] %s — %s € — %s", a.id, a.titre[:50], a.prix, a.url[:60])
+        logger.info("━━━ FIN %s : %d annonces récupérées ━━━", site_nom.upper(), len(annonces_brutes))
+        for a in annonces_brutes[:5]:
+            logger.info("  • %s — %s€ — %s", a.titre[:50], a.prix, a.url[:70])
 
+        nb_nouvelles = nb_rejetees = nb_dejavu = 0
         for annonce in annonces_brutes:
             if annonce.id in seen:
-                continue  # Déjà traitée
+                nb_dejavu += 1
+                continue
 
             try:
                 resultat = matcher_annonce(annonce, criteres)
@@ -143,11 +146,14 @@ def main() -> None:
                 data = _annonce_to_dict(annonce, resultat.score, resultat.tags_satisfaits, ts)
                 seen[annonce.id] = data
                 nouvelles.append(data)
-                logger.info("✅ Match : %s — %d € (score %d)", annonce.titre[:50], annonce.prix, resultat.score)
+                nb_nouvelles += 1
+                logger.info("  ✅ MATCH : %s — %d€ (score %d) tags=%s", annonce.titre[:50], annonce.prix, resultat.score, resultat.tags_satisfaits)
             else:
-                # Enregistrer comme vue mais non matchée (évite de la retraiter)
                 seen[annonce.id] = {"matched": False, "timestamp": time.time()}
-                logger.debug("❌ Rejeté %s : %s", annonce.id, resultat.raisons_rejet)
+                nb_rejetees += 1
+                logger.info("  ❌ Rejeté : %s — %d€ — %s", annonce.titre[:40], annonce.prix, resultat.raisons_rejet)
+
+        logger.info("  → %d matchées | %d rejetées | %d déjà vues", nb_nouvelles, nb_rejetees, nb_dejavu)
 
     _sauvegarder_seen(seen)
 
